@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Truck, Package, CheckCircle, Clock,
-  RefreshCw, MapPin, Phone, Navigation,
+  RefreshCw, MapPin, Navigation,
   Wifi, WifiOff, Loader
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import Navbar from '../components/shared/Navbar';
 import {
-  StatCard, LoadingSkeleton, StatusBadge,
-  UrgencyBadge, PriorityBar, EmptyState
+  StatCard, LoadingSkeleton,
+  StatusBadge, UrgencyBadge, PriorityBar
 } from '../components/shared/Badges';
 
 import api from '../utils/api';
@@ -34,8 +34,8 @@ const DeliveryDashboard = () => {
   const [myOrders, setMyOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('available');
-  const [updating, setUpdating] = useState(null);
   const [accepting, setAccepting] = useState(null);
+  const [updating, setUpdating] = useState(null);
 
   // 🔄 Fetch Data
   const fetchData = useCallback(async () => {
@@ -48,16 +48,17 @@ const DeliveryDashboard = () => {
 
       setAvailable(avRes.data.orders || []);
       setMyOrders(myRes.data.orders || []);
-
-    } catch (err) {
+    } catch {
       toast.error('Failed to load data');
-      setTimeout(fetchData, 3000); // auto retry
+      setTimeout(fetchData, 3000);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // ⚡ SOCKET EVENTS
   useEffect(() => {
@@ -97,8 +98,10 @@ const DeliveryDashboard = () => {
     setAccepting(orderId);
     try {
       const res = await api.post(`/delivery/${orderId}/accept`);
+
       setAvailable(prev => prev.filter(o => o._id !== orderId));
       setMyOrders(prev => [res.data.order, ...prev]);
+
       setTab('active');
       toast.success('Order accepted!');
     } catch {
@@ -112,7 +115,9 @@ const DeliveryDashboard = () => {
   const updateStatus = async (orderId, newStatus) => {
     setUpdating(orderId);
     try {
-      const res = await api.put(`/delivery/${orderId}/status`, { status: newStatus });
+      const res = await api.put(`/delivery/${orderId}/status`, {
+        status: newStatus,
+      });
 
       setMyOrders(prev =>
         prev.map(o => o._id === orderId ? res.data.order : o)
@@ -139,9 +144,11 @@ const DeliveryDashboard = () => {
     { key: 'completed', label: `Completed (${completedOrders.length})` },
   ];
 
-  // 📍 Navigation
+  // 📍 Google Maps Navigation
   const openMap = (address) => {
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`);
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`
+    );
   };
 
   return (
@@ -156,10 +163,17 @@ const DeliveryDashboard = () => {
             <h1 className="text-3xl font-bold text-white">Delivery Hub</h1>
 
             <p className="flex items-center gap-2 text-sm">
-              {connected
-                ? <><Wifi className="text-green-400 w-4" /> <span className="text-green-400">Live</span></>
-                : <><WifiOff className="text-red-400 w-4" /> <span className="text-red-400">Offline</span></>
-              }
+              {connected ? (
+                <>
+                  <Wifi className="text-green-400 w-4" />
+                  <span className="text-green-400">Live</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="text-red-400 w-4" />
+                  <span className="text-red-400">Offline</span>
+                </>
+              )}
             </p>
           </div>
 
@@ -176,8 +190,11 @@ const DeliveryDashboard = () => {
           <StatCard icon={Package} label="Available" value={available.length} />
           <StatCard icon={Truck} label="Active" value={activeOrders.length} />
           <StatCard icon={CheckCircle} label="Completed" value={completedOrders.length} />
-          <StatCard icon={Clock} label="Critical"
-            value={available.filter(o => o.urgencyLevel === 'critical').length} />
+          <StatCard
+            icon={Clock}
+            label="Critical"
+            value={available.filter(o => o.urgencyLevel === 'critical').length}
+          />
         </div>
 
         {/* TABS */}
@@ -186,7 +203,11 @@ const DeliveryDashboard = () => {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-2 rounded-lg ${tab === t.key ? 'bg-sky-500 text-white' : 'bg-white/10 text-gray-400'}`}
+              className={`px-4 py-2 rounded-lg ${
+                tab === t.key
+                  ? 'bg-sky-500 text-white'
+                  : 'bg-white/10 text-gray-400'
+              }`}
             >
               {t.label}
             </button>
@@ -194,13 +215,16 @@ const DeliveryDashboard = () => {
         </div>
 
         {/* CONTENT */}
-        {loading ? <LoadingSkeleton rows={4} /> : (
-
+        {loading ? (
+          <LoadingSkeleton rows={4} />
+        ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 
-            {(tab === 'available' ? available :
-              tab === 'active' ? activeOrders :
-                completedOrders
+            {(tab === 'available'
+              ? available
+              : tab === 'active'
+              ? activeOrders
+              : completedOrders
             ).map(order => {
 
               const flow = STATUS_FLOW[order.status];
@@ -219,8 +243,9 @@ const DeliveryDashboard = () => {
 
                   <PriorityBar score={order.priorityScore} />
 
-                  <div className="text-sm text-gray-400 mt-2">
-                    <MapPin className="inline w-3" /> {order.deliveryAddress}
+                  <div className="text-sm text-gray-400 mt-2 flex items-center gap-1">
+                    <MapPin className="w-3" />
+                    {order.deliveryAddress}
                   </div>
 
                   {/* ACTIONS */}
@@ -232,16 +257,25 @@ const DeliveryDashboard = () => {
                         disabled={accepting === order._id}
                         className="flex-1 bg-sky-500 text-white py-2 rounded"
                       >
-                        {accepting === order._id ? <Loader className="animate-spin" /> : 'Accept'}
+                        {accepting === order._id ? (
+                          <Loader className="animate-spin w-4 mx-auto" />
+                        ) : (
+                          'Accept'
+                        )}
                       </button>
                     )}
 
                     {flow && tab === 'active' && (
                       <button
                         onClick={() => updateStatus(order._id, flow.next)}
+                        disabled={updating === order._id}
                         className={`flex-1 text-white py-2 rounded ${COLOR_MAP[flow.color]}`}
                       >
-                        {flow.label}
+                        {updating === order._id ? (
+                          <Loader className="animate-spin w-4 mx-auto" />
+                        ) : (
+                          flow.label
+                        )}
                       </button>
                     )}
 
@@ -253,11 +287,9 @@ const DeliveryDashboard = () => {
                     </button>
 
                   </div>
-
                 </div>
               );
             })}
-
           </div>
         )}
       </div>
